@@ -1,3 +1,4 @@
 [submodule "honggfuzz"]
 	path = honggfuzz
-	url = https://github.com/google/honggfuzz
+	url = git@github.com:firedancer-io/honggfuzz.git
+	branch = master-patches
