@@ -15,12 +15,7 @@ description = """
 Fuzz your Rust code with Google-developped Honggfuzz !
 """
 
-exclude = [
-	"/honggfuzz/examples/**",
-	"/honggfuzz/hfuzz_cc/**",
-	"/honggfuzz/**/*.png",
-	"/honggfuzz/includes/**",
-]
+exclude = []
 
 [badges]
 travis-ci = { repository = "rust-fuzz/honggfuzz-rs", branch = "master" }
