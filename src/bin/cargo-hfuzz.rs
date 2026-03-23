@@ -282,7 +282,10 @@ where
 
                 rustflags.push_str("-C llvm-args=-sanitizer-coverage-level=4 ");
                 rustflags.push_str("-C llvm-args=-sanitizer-coverage-trace-pc-guard ");
+                rustflags.push_str("-C llvm-args=-sanitizer-coverage-inline-8bit-counters ");
+                rustflags.push_str("-C llvm-args=-sanitizer-coverage-pc-table ");
                 rustflags.push_str("-C llvm-args=-sanitizer-coverage-trace-divs ");
+                rustflags.push_str("-C llvm-args=-sanitizer-coverage-trace-geps ");
 
                 // trace-compares doesn't work on macOS without a sanitizer
                 if cfg!(not(target_os = "macos")) {

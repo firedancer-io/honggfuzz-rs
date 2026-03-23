@@ -47,28 +47,41 @@ fn main() {
     let honggfuzz_target = Path::new(&env::var("CRATE_ROOT").unwrap()) // from honggfuzz
         .join(honggfuzz_target); // resolve the original honggfuzz_target relative to CRATE_ROOT
 
-    // clean upstream honggfuzz directory
-    let status = Command::new(GNU_MAKE)
-        .args(&["-C", "honggfuzz", "clean"])
-        .status()
-        .unwrap_or_else(|_e| panic!("failed to run \"{} -C honggfuzz clean\"", GNU_MAKE));
-    assert!(status.success());
-    // TODO: maybe it's not a good idea to always clean the sources..
+    // This crate lives at solfuzz/shlr/honggfuzz-rs, and the canonical
+    // honggfuzz source is the sibling directory solfuzz/shlr/honggfuzz.
+    // Use that instead of the embedded honggfuzz/ submodule to avoid
+    // maintaining two copies.
+    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    let honggfuzz_src = manifest_dir.join("../honggfuzz").canonicalize()
+        .expect("shlr/honggfuzz directory not found — is the solfuzz repo checked out correctly?");
+    let hfuzz_src_str = honggfuzz_src.to_str().unwrap();
 
-    // build honggfuzz command and hfuzz static library
-    let status = Command::new(GNU_MAKE)
-        .args(&["-C", "honggfuzz", "honggfuzz", "libhfuzz/libhfuzz.a", "libhfcommon/libhfcommon.a"])
-        .status()
-        .unwrap_or_else(|_e| panic!("failed to run \"{} -C honggfuzz hongfuzz libhfuzz/libhfuzz.a libhfcommon/libhfcommon.a\"", GNU_MAKE));
-    assert!(status.success());
+    // Check if the pre-built artifacts already exist (skip redundant rebuild)
+    let libhfuzz_a = honggfuzz_src.join("libhfuzz/libhfuzz.a");
+    let libhfcommon_a = honggfuzz_src.join("libhfcommon/libhfcommon.a");
+    let honggfuzz_bin = honggfuzz_src.join("honggfuzz");
 
-    fs::copy("honggfuzz/libhfuzz/libhfuzz.a", out_dir.join("libhfuzz.a")).unwrap();
-    fs::copy(
-        "honggfuzz/libhfcommon/libhfcommon.a",
-        out_dir.join("libhfcommon.a"),
-    )
-    .unwrap();
-    fs::copy("honggfuzz/honggfuzz", honggfuzz_target.join("honggfuzz")).unwrap();
+    if libhfuzz_a.exists() && libhfcommon_a.exists() && honggfuzz_bin.exists() {
+        eprintln!("honggfuzz-rs: reusing pre-built honggfuzz at {}", hfuzz_src_str);
+    } else {
+        // clean honggfuzz directory
+        let status = Command::new(GNU_MAKE)
+            .args(&["-C", hfuzz_src_str, "clean"])
+            .status()
+            .unwrap_or_else(|_e| panic!("failed to run \"{} -C {} clean\"", GNU_MAKE, hfuzz_src_str));
+        assert!(status.success());
+
+        // build honggfuzz command and hfuzz static library
+        let status = Command::new(GNU_MAKE)
+            .args(&["-C", hfuzz_src_str, "honggfuzz", "libhfuzz/libhfuzz.a", "libhfcommon/libhfcommon.a"])
+            .status()
+            .unwrap_or_else(|_e| panic!("failed to run \"{} -C {} honggfuzz libhfuzz/libhfuzz.a libhfcommon/libhfcommon.a\"", GNU_MAKE, hfuzz_src_str));
+        assert!(status.success());
+    }
+
+    fs::copy(&libhfuzz_a, out_dir.join("libhfuzz.a")).unwrap();
+    fs::copy(&libhfcommon_a, out_dir.join("libhfcommon.a")).unwrap();
+    fs::copy(&honggfuzz_bin, honggfuzz_target.join("honggfuzz")).unwrap();
 
     // tell cargo how to link final executable to hfuzz static library
     println!("cargo:rustc-link-lib=static={}", "hfuzz");
