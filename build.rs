@@ -25,6 +25,9 @@ const GNU_MAKE: &str = "make";
 const GNU_MAKE: &str = "gmake";
 
 fn main() {
+    println!("cargo:rustc-check-cfg=cfg(fuzzing)");
+    println!("cargo:rustc-check-cfg=cfg(fuzzing_debug)");
+
     // Only build honggfuzz binaries if we are in the process of building an instrumentized binary
     let honggfuzz_target = match env::var("CARGO_HONGGFUZZ_TARGET_DIR") {
         Ok(path) => path, // path where to place honggfuzz binary. provided by cargo-hfuzz command.
@@ -52,7 +55,9 @@ fn main() {
     // Use that instead of the embedded honggfuzz/ submodule to avoid
     // maintaining two copies.
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let honggfuzz_src = manifest_dir.join("../honggfuzz").canonicalize()
+    let honggfuzz_src = manifest_dir
+        .join("../honggfuzz")
+        .canonicalize()
         .expect("shlr/honggfuzz directory not found — is the solfuzz repo checked out correctly?");
     let hfuzz_src_str = honggfuzz_src.to_str().unwrap();
 
@@ -62,13 +67,18 @@ fn main() {
     let honggfuzz_bin = honggfuzz_src.join("honggfuzz");
 
     if libhfuzz_a.exists() && libhfcommon_a.exists() && honggfuzz_bin.exists() {
-        eprintln!("honggfuzz-rs: reusing pre-built honggfuzz at {}", hfuzz_src_str);
+        eprintln!(
+            "honggfuzz-rs: reusing pre-built honggfuzz at {}",
+            hfuzz_src_str
+        );
     } else {
         // clean honggfuzz directory
         let status = Command::new(GNU_MAKE)
             .args(&["-C", hfuzz_src_str, "clean"])
             .status()
-            .unwrap_or_else(|_e| panic!("failed to run \"{} -C {} clean\"", GNU_MAKE, hfuzz_src_str));
+            .unwrap_or_else(|_e| {
+                panic!("failed to run \"{} -C {} clean\"", GNU_MAKE, hfuzz_src_str)
+            });
         assert!(status.success());
 
         // build honggfuzz command and hfuzz static library
